@@ -32,7 +32,7 @@ def getKey(item):
 #%% importing necessary libraries
 from sklearn import datasets
 from sklearn.metrics import confusion_matrix
-from sklearn.metrics import f1_score
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 #%% 
@@ -73,10 +73,89 @@ def get_data(csv):
     tfeatures['dQ'] = np.gradient(tfeatures['Q'])
     return tfeatures
 #%%
+def set_bit(value, bit):
+    return value | (1<<bit)
+def clear_bit(value, bit):
+    return value & ~(1<<bit)
+def update_state(prev_state, appliance, change):
+    curr_state = prev_state
+    if change is 1:
+        if appliance == "Air Conditioner":
+            curr_state = set_bit(curr_state, 0)
+        elif appliance == "Water Boiler":
+            curr_state = set_bit(curr_state, 1)
+        elif appliance == "Hair Dryer":
+            curr_state = set_bit(curr_state, 2)
+        elif appliance == "Electronic Cooker":
+            curr_state = set_bit(curr_state, 3)
+        elif appliance == "Dehumidifier":
+            curr_state = set_bit(curr_state, 4)
+        elif appliance == "Refrigerator":
+            curr_state = set_bit(curr_state, 5)
+        elif appliance == "Ambient Heater":
+            curr_state = set_bit(curr_state, 6)
+        elif appliance == "Television":
+            curr_state = set_bit(curr_state, 7)
+        elif appliance == "Vent Hood":
+            curr_state = set_bit(curr_state, 8)
+        elif appliance == "Washing Machine":
+            curr_state = set_bit(curr_state, 9)
+        else:
+            print ('Error: appliance not found...')
+    else:
+        if appliance == "Air Conditioner":
+            curr_state = clear_bit(curr_state, 0)
+        elif appliance == "Water Boiler":
+            curr_state = clear_bit(curr_state, 1)
+        elif appliance == "Hair Dryer":
+            curr_state = clear_bit(curr_state, 2)
+        elif appliance == "Electronic Cooker":
+            curr_state = clear_bit(curr_state, 3)
+        elif appliance == "Dehumidifier":
+            curr_state = clear_bit(curr_state, 4)
+        elif appliance == "Refrigerator":
+            curr_state = clear_bit(curr_state, 5)
+        elif appliance == "Ambient Heater":
+            curr_state = clear_bit(curr_state, 6)
+        elif appliance == "Television":
+            curr_state = clear_bit(curr_state, 7)
+        elif appliance == "Vent Hood":
+            curr_state = clear_bit(curr_state, 8)
+        elif appliance == "Washing Machine":
+            curr_state = clear_bit(curr_state, 9)
+        else:
+            print ('Error: appliance not found...')
+    return curr_state
+#%%
+def decode(state):
+    appliances = ''
+    if state & 0b0000000001:
+        appliances = appliances + 'Air Conditioner '
+    if state & 0b0000000010:
+        appliances = appliances + 'Water Boiler '
+    if state & 0b0000000100:
+        appliances = appliances + 'Hair Dryer '
+    if state & 0b0000001000:
+        appliances = appliances + 'Electronic Cooker '
+    if state & 0b0000010000:
+        appliances = appliances + 'Dehumidifier '
+    if state & 0b0000100000:
+        appliances = appliances + 'Refrigerator '
+    if state & 0b0001000000:
+        appliances = appliances + 'Ambient Heater '
+    if state & 0b0010000000:
+        appliances = appliances + 'Television '
+    if state & 0b0100000000:
+        appliances = appliances + 'Vent Hood '
+    if state & 0b1000000000:
+        appliances = appliances + 'Washing Machine '
+    return appliances
+#%%
 class dataset(object):
     
     def __init__(self):
-        print ("initialize Class A dataset
+        print ("initialize Class A dataset...")
+        
         # AIRCON
         tfeatures = get_data('data/AIRCON2.csv')
         #Signal Filter
@@ -229,7 +308,7 @@ class dataset(object):
         if ('Electronic Cooker' in selection) or (selection is ''):
             plt.scatter(self.c_feats['P'] ,self.c_feats['Q'] , c='c', label='Electronic Cooker', edgecolors='none')
         if ('Dehumidifier' in selection) or (selection is ''):
-            plt.scatter(self.dh_feats['P'],self.dh_feats['Q'], c='c', label='rc_data', edgecolors='m')
+            plt.scatter(self.dh_feats['P'],self.dh_feats['Q'], c='c', label='Dehumidifier', edgecolors='m')
         if ('Refrigerator' in selection) or (selection is ''):
             plt.scatter(self.f_feats['P'] ,self.f_feats['Q'] , c='r', label='Refrigerator', edgecolors='none')
         if ('Ambient Heater' in selection) or (selection is ''):
@@ -252,8 +331,120 @@ class dataset(object):
 #%%
 class composite(object):
     def __init__(self, filename):
-        print ("initialize Class A composite signals...")        
+        print ("initialize Class A composite signals...")     
+        self.filename = filename
         self.tsignal = get_data(filename)   
+        
+        self.labels = list()
+        if filename == 'data/AC_D.csv':
+            curr_state = 0
+            for t in range(0, len(self.tsignal['S'])):
+                if t < 50:
+                    if self.tsignal['S'][t] > 200:  
+                        curr_state = update_state(curr_state, 'Air Conditioner', 1)
+                        curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                    else:
+                        curr_state = update_state(curr_state, 'Air Conditioner', 0)
+                        curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                else:                    
+                    if self.tsignal['S'][t] > 1500:                 
+                        curr_state = update_state(curr_state, 'Air Conditioner', 1)
+                        curr_state = update_state(curr_state, 'Hair Dryer', 1)
+                    elif self.tsignal['S'][t] > 1000:                 
+                        curr_state = update_state(curr_state, 'Air Conditioner', 0)
+                        curr_state = update_state(curr_state, 'Hair Dryer', 1)
+                    elif self.tsignal['S'][t] > 200:                 
+                        curr_state = update_state(curr_state, 'Air Conditioner', 1)
+                        curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                    else:
+                        curr_state = update_state(curr_state, 'Air Conditioner', 0)
+                        curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                self.labels.append(curr_state)            
+            
+        elif filename == 'data/B_I3.csv':
+            
+            curr_state = 0
+            for t in range(0, len(self.tsignal['S'])):
+                if  t < 464:
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                elif t > 1097 and t < 1091:
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                elif t > 1371 and t < 1466:
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                elif t > 1769 and t < 1904:
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                elif t > 2074 and t < 2175:
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)
+                else:
+                    curr_state = update_state(curr_state, 'Hair Dryer', 1)                    
+                self.labels.append(curr_state)   
+                
+        elif filename == 'data/C_V.csv':
+            self.tsignal = self.tsignal[:750]
+            curr_state = 0
+            for t in range(0, len(self.tsignal['S'])):
+                if  t < 17:
+                    curr_state = update_state(curr_state, 'Electronic Cooker', 0)
+                    curr_state = update_state(curr_state, 'Vent Hood', 0)    
+                elif t < 80:
+                    curr_state = update_state(curr_state, 'Electronic Cooker', 0)
+                    curr_state = update_state(curr_state, 'Vent Hood', 1)  
+                elif t < 284:
+                    curr_state = update_state(curr_state, 'Electronic Cooker', 1)
+                    curr_state = update_state(curr_state, 'Vent Hood', 1)   
+                else:
+                    if self.tsignal['S'][t] > 1350:
+                        curr_state = update_state(curr_state, 'Electronic Cooker', 1)
+                        curr_state = update_state(curr_state, 'Vent Hood', 1)    
+                    elif self.tsignal['S'][t] > 1140:
+                        curr_state = update_state(curr_state, 'Electronic Cooker', 1)
+                        curr_state = update_state(curr_state, 'Vent Hood', 0)     
+                    elif self.tsignal['S'][t] > 125:
+                        curr_state = update_state(curr_state, 'Electronic Cooker', 0)
+                        curr_state = update_state(curr_state, 'Vent Hood', 1)   
+                    else:
+                        curr_state = update_state(curr_state, 'Electronic Cooker', 0)
+                        curr_state = update_state(curr_state, 'Vent Hood', 0)   
+                self.labels.append(curr_state)   
+                
+        elif filename == 'data/D_TV2.csv':
+            
+            curr_state = 0
+            for t in range(0, len(self.tsignal['S'])):
+                if self.tsignal['S'][t] > 1210:
+                    curr_state = update_state(curr_state, 'Television', 1)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 1)                        
+                elif self.tsignal['S'][t] > 500:
+                    curr_state = update_state(curr_state, 'Television', 0)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 1)                      
+                elif self.tsignal['S'][t] > 40:
+                    curr_state = update_state(curr_state, 'Television', 1)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)   
+                else:                     
+                    curr_state = update_state(curr_state, 'Television', 0)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)   
+                self.labels.append(curr_state)  
+                
+        elif filename == 'data/D_V.csv':
+            
+            curr_state = 0
+            for t in range(0, len(self.tsignal['S'])):
+                if self.tsignal['S'][t] > 1350:
+                    curr_state = update_state(curr_state, 'Vent Hood', 1)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 1)                        
+                elif self.tsignal['S'][t] > 750:
+                    curr_state = update_state(curr_state, 'Vent Hood', 0)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 1)                      
+                elif self.tsignal['S'][t] > 100:
+                    curr_state = update_state(curr_state, 'Vent Hood', 1)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)   
+                else:                     
+                    curr_state = update_state(curr_state, 'Vent Hood', 0)
+                    curr_state = update_state(curr_state, 'Hair Dryer', 0)   
+                self.labels.append(curr_state) 
+                
+        else:
+            print ('Warning: test labels not found')
         
         plt.figure()
         plt.clf()  
@@ -263,6 +454,17 @@ class composite(object):
         plt.xlabel('time', fontsize=18)
         plt.ylabel('Apparent Power', fontsize=18)
         plt.show()
+    
+    def report_mismatches(self, ):        
+        print ('Mismatch points:')
+        count = 0
+        for t in range(len(self.states)):
+            if self.labels[t] != self.states[t]:
+                print ('at time', t, ':')
+                print ('    Actual:', decode(self.labels[t]))
+                print ('    Predicted:', decode(self.states[t]))
+                count = count + 1
+        print ('Number of mismatches:', count, '/', len(self.states))
         
     def disaggrate(self, model):
         # Initialization                
@@ -286,6 +488,9 @@ class composite(object):
         
 #        tbase = 0
         prediction = []
+        
+        curr_state = 0
+        self.states = []
         for t in range(0, len(self.tsignal['S'])):    
             
             nowp = minp[t]
@@ -297,13 +502,15 @@ class composite(object):
                     current['P'] = minp[t]
                     current['Q'] = minq[t]
                     appliance = model.predict(current - baseline)
-#                    print ('at t =', t, 'Switched ON:', appliance)
+                    
+                    curr_state = update_state(curr_state, appliance, 1)
                     
                     for time in reversed(range(t)):
                         if self.tsignal['S'][time] + pth < nows:
                             break
                         else:
                             prediction[time] = nows
+                            self.states[time] = curr_state
                             
                     print ('at t =', time, 'Switched ON:', appliance)
                     
@@ -316,16 +523,17 @@ class composite(object):
                     current['P']= minp[t]
                     current['Q']= minq[t]
                     appliance = model.predict(baseline - current)
-#                    print ('at t =', t, 'Switched OFF:', appliance)
+                    
+                    curr_state = update_state(curr_state, appliance, 0)
                     
                     for time in reversed(range(t)):
                         if self.tsignal['S'][time] > nows + pth:
                             break
                         else:
                             prediction[time] = nows
+                            self.states[time] = curr_state
                             
                     print ('at t =', time, 'Switched OFF:', appliance)
-                    
                     
                     base = nows                    
                     baseline['P'] = minp[t]  
@@ -334,6 +542,7 @@ class composite(object):
                     
                     
             prediction.append(base)    
+            self.states.append(curr_state)
             lastp = nowp
             lastq = nowq
 
@@ -351,57 +560,13 @@ class composite(object):
         plt.xlabel('time')
         axes = plt.gca()
         
-        print ('r2 score:', r2_score(self.tsignal['S'], prediction))
+#        print ('r2 score:', r2_score(self.tsignal['S'], prediction))
         
-#        print (len(self.tsignal['S']), len(prediction))
-#        (self.tsignal['S'] - prediction)
-##        f1_score(np.floor(self.tsignal['S']), np.floor(prediction), average='macro')  
-##        f1_score(np.floor(self.tsignal['S']), np.floor(prediction), average='micro')  
-#        f1_score(np.rint(self.tsignal['S']), np.rint(prediction), average='weighted', labels=np.unique(prediction))  
-##        f1_score(np.floor(self.tsignal['S']), np.floor(prediction), average='None')  
-            
-#        plt.figure()
-#        plt.clf()
-#        plt.plot(prediction)
-#        plt.ylabel('Prediction')
-#        plt.xlabel('time')
-#        axes = plt.gca()
+        print ('%-15s%-15s%-15s%-15s' % ('filename', 'precision', 'recall', 'f1-score'))
+        print ('%-15s%-15f%-15f%-15f' % (self.filename, precision_score(self.labels, self.states, average='weighted'), recall_score(self.labels, self.states, average='weighted'), f1_score(self.labels, self.states, average='weighted')))
         
-#        plt.figure()
-#        plt.clf()
-#        plt.subplot(321)
-#        plt.plot(self.tsignal['S'])
-#        plt.ylabel('S')
-#        plt.xlabel('time')
-#        axes = plt.gca()
-#        
-#        plt.subplot(322)
-#        plt.plot(mins)
-#        plt.ylabel('mins')
-#        plt.xlabel('time')
-#        axes = plt.gca()
-#        
-#        plt.subplot(323)
-#        plt.plot(self.tsignal['P'])
-#        plt.ylabel('P')
-#        plt.xlabel('time')
-#        axes = plt.gca()
-#        
-#        plt.subplot(324)
-#        plt.plot(minp)
-#        plt.ylabel('minp')
-#        plt.xlabel('time')
-#        axes = plt.gca()
-#        
-#        plt.subplot(325)
-#        plt.plot(self.tsignal['Q'])
-#        plt.ylabel('Q')
-#        plt.xlabel('time')
-#        axes = plt.gca()
-#        
-#        
-#        plt.subplot(326)
-#        plt.plot(minq)
-#        plt.ylabel('minq')
-#        plt.xlabel('time')
-#        axes = plt.gca()
+        
+#        print ('precision_score:', precision_score(self.labels, self.states, average='weighted')) 
+#        print ('recall_score:', recall_score(self.labels, self.states, average='weighted')) 
+#        print ('f1_score:', f1_score(self.labels, self.states, average='weighted'))  
+#        print ('accuracy_score:', accuracy_score(self.labels, self.states))  
